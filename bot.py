@@ -27,7 +27,7 @@ from aiohttp import web
 API_ID = 29904834  # my.telegram.org থেকে নিন
 API_HASH = "8b4fd9ef578af114502feeafa2d31938" 
 BOT_TOKEN = "8061645932:AAGmZUdjfcEFx2Y58EV1FFhoLf5M1RFyv8o" # BotFather থেকে নিন
-SERVER_URL = "http://localhost:8080" # যদি লাইভ সার্ভার হয় তবে IP দিন
+SERVER_URL = "https://tgstreem.onrender.com" # যদি লাইভ সার্ভার হয় তবে IP দিন
 
 bot = Client("stream_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
