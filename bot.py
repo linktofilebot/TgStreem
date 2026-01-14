@@ -22,25 +22,27 @@ from pyrogram.types import Message
 from aiohttp import web
 
 # ==========================================
-# আপনার তথ্য এখানে বসান (বড় হাতের অক্ষরের জায়গায়)
+# আপনার তথ্য (সংরক্ষিত রাখা হয়েছে)
 # ==========================================
-API_ID = 29904834  # my.telegram.org থেকে নিন
+API_ID = 29904834  
 API_HASH = "8b4fd9ef578af114502feeafa2d31938" 
-BOT_TOKEN = "8061645932:AAGmZUdjfcEFx2Y58EV1FFhoLf5M1RFyv8o" # BotFather থেকে নিন
-SERVER_URL = "https://tgstreem.onrender.com" # যদি লাইভ সার্ভার হয় তবে IP দিন
+BOT_TOKEN = "8061645932:AAGmZUdjfcEFx2Y58EV1FFhoLf5M1RFyv8o" 
+SERVER_URL = "https://tgstreem.onrender.com" 
 
 bot = Client("stream_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 # --- ভিডিও স্ট্রিমিং সার্ভার লজিক ---
 routes = web.RouteTableDef()
 
+# রেন্ডার হেলথ চেক এর জন্য একটি হোম রুট (এটি এরর কমাবে)
+@routes.get("/")
+async def home_handler(request):
+    return web.Response(text="Bot is Online and Streaming Server is Running!")
+
 @routes.get("/stream/{file_id}")
 async def stream_handler(request):
     file_id = request.match_info['file_id']
     
-    # ভিডিও ফাইলের সাইজ এবং নাম পাওয়ার চেষ্টা
-    file_info = await bot.get_messages(None, None) # Placeholder
-
     async def file_generator():
         async for chunk in bot.iter_download(file_id):
             yield chunk
@@ -59,10 +61,12 @@ async def start_server():
     app.add_routes(routes)
     runner = web.AppRunner(app)
     await runner.setup()
-    # ০.০.০.০ মানে এটি যেকোনো কানেকশন একসেপ্ট করবে
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    
+    # রেন্ডারের জন্য পোর্ট ফিক্স (PORT environment variable ব্যবহার করা হয়েছে)
+    port = int(os.environ.get("PORT", 8080)) 
+    site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    print("\n🚀 স্ট্রিমিং সার্ভার চালু হয়েছে পোর্ট ৮০৮০ তে...")
+    print(f"\n🚀 স্ট্রিমিং সার্ভার চালু হয়েছে পোর্ট {port} তে...")
 
 # --- বটের মেসেজ হ্যান্ডলার ---
 @bot.on_message(filters.video | filters.document)
@@ -93,10 +97,11 @@ async def main():
     await bot.start()
     await start_server()
     print("বট এখন অনলাইন।")
+    # অনন্তকাল লুপে রাখার জন্য
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         print("\nবট বন্ধ করা হয়েছে।")
