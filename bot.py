@@ -17,7 +17,7 @@ def install_requirements():
 install_requirements()
 
 # ইনস্টল হওয়ার পর লাইব্রেরিগুলো ইমপোর্ট করা
-from pyrogram import Client, filters
+from pyrogram import Client, filters, idle
 from pyrogram.types import Message
 from aiohttp import web
 
@@ -29,15 +29,16 @@ API_HASH = "8b4fd9ef578af114502feeafa2d31938"
 BOT_TOKEN = "8061645932:AAGmZUdjfcEFx2Y58EV1FFhoLf5M1RFyv8o" 
 SERVER_URL = "https://tgstreem.onrender.com" 
 
+# বট ক্লায়েন্ট সেটআপ
 bot = Client("stream_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 # --- ভিডিও স্ট্রিমিং সার্ভার লজিক ---
 routes = web.RouteTableDef()
 
-# রেন্ডার হেলথ চেক এর জন্য একটি হোম রুট (এটি এরর কমাবে)
+# রেন্ডার যেন বুঝতে পারে সার্ভার সচল আছে (Health Check)
 @routes.get("/")
 async def home_handler(request):
-    return web.Response(text="Bot is Online and Streaming Server is Running!")
+    return web.Response(text="Streaming Bot is Online!")
 
 @routes.get("/stream/{file_id}")
 async def stream_handler(request):
@@ -62,13 +63,22 @@ async def start_server():
     runner = web.AppRunner(app)
     await runner.setup()
     
-    # রেন্ডারের জন্য পোর্ট ফিক্স (PORT environment variable ব্যবহার করা হয়েছে)
-    port = int(os.environ.get("PORT", 8080)) 
+    # রেন্ডারের জন্য পোর্ট হ্যান্ডলিং
+    port = int(os.environ.get("PORT", 8080))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
     print(f"\n🚀 স্ট্রিমিং সার্ভার চালু হয়েছে পোর্ট {port} তে...")
 
 # --- বটের মেসেজ হ্যান্ডলার ---
+
+# স্টার্ট কমান্ড হ্যান্ডলার
+@bot.on_message(filters.command("start"))
+async def start_msg(c, m):
+    await m.reply_text(
+        "👋 স্বাগতম!\n\nআমাকে ভিডিও ফাইল পাঠান, আমি আপনাকে সরাসরি স্ট্রিমিং লিঙ্ক দেব।"
+    )
+
+# ভিডিও এবং ফাইল হ্যান্ডলার
 @bot.on_message(filters.video | filters.document)
 async def handle_video(client: Client, message: Message):
     file_id = None
@@ -80,28 +90,35 @@ async def handle_video(client: Client, message: Message):
     if file_id:
         stream_link = f"{SERVER_URL}/stream/{file_id}"
         await message.reply_text(
-            f"✅ ভিডিওর স্ট্রিমিং লিঙ্ক তৈরি!\n\n"
+            f"✅ **ভিডিওর স্ট্রিমিং লিঙ্ক তৈরি!**\n\n"
             f"🔗 লিঙ্ক: `{stream_link}`\n\n"
-            f"এটি আপনার ওয়েবসাইট প্লেয়ারে ব্যবহার করুন।"
+            f"এই লিঙ্কটি আপনার ওয়েবসাইট প্লেয়ারে ব্যবহার করুন।"
         )
     else:
-        await message.reply_text("দয়া করে একটি ভিডিও ফাইল পাঠান।")
-
-@bot.on_message(filters.command("start"))
-async def start_msg(c, m):
-    await m.reply_text("বট চালু আছে! আমাকে ভিডিও পাঠান।")
+        await message.reply_text("❌ এটি কোনো ভিডিও ফাইল নয়।")
 
 # --- বট এবং সার্ভার একসাথে রান করা ---
 async def main():
     print("বট স্টার্ট হচ্ছে...")
+    # বট শুরু করা
     await bot.start()
+    
+    # সার্ভার শুরু করা
     await start_server()
+    
     print("বট এখন অনলাইন।")
-    # অনন্তকাল লুপে রাখার জন্য
-    await asyncio.Event().wait()
+    
+    # বটকে একটিভ রাখা (এটি মেসেজ শোনার জন্য জরুরি)
+    await idle()
+    
+    # বন্ধ করার সময় সেফলি স্টপ করা
+    await bot.stop()
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
+        # ইভেন্ট লুপ চালানো
+        asyncio.get_event_loop().run_until_complete(main())
+    except KeyboardInterrupt:
         print("\nবট বন্ধ করা হয়েছে।")
+    except Exception as e:
+        print(f"Error: {e}")
